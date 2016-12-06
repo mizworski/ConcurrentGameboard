@@ -26,13 +26,20 @@ public class StawianieNaPlanszy {
     th4.start();
     th5.start();
 
+    Thread thu1 = new Thread(new UsuwaniePostaci(plansza, p1));
+    Thread thu2 = new Thread(new UsuwaniePostaci(plansza, p2));
+    Thread thu3 = new Thread(new UsuwaniePostaci(plansza, p3));
+    Thread thu4 = new Thread(new UsuwaniePostaci(plansza, p4));
+    Thread thu5 = new Thread(new UsuwaniePostaci(plansza, p5));
+
     try {
       th1.join();
       th2.join();
       th3.join();
       th4.join();
       th5.join();
-    } catch (InterruptedException e) {
+    }
+    catch (InterruptedException e) {
       e.printStackTrace();
     }
 

@@ -5,7 +5,6 @@ import java.util.concurrent.Semaphore;
 
 public class MojaPlansza implements Plansza {
   private final static int PUSTE_POLE = -1;
-  //  private final static int POCZĄTKOWA_LICZBA_SEMAFORÓW = 16;
   private final int wysokość;
   private final int szerokość;
   private int licznikPostaci;
@@ -26,7 +25,7 @@ public class MojaPlansza implements Plansza {
   private volatile Map<Pozycja, LinkedList<Integer>> postacieOczekująceNaPole;
 
   /// Pola, których podana postać wymaga, aby wykonać swój ruch.
-  private volatile Map<Integer, Set<Pozycja>> polaPotrzebneDoRuchu;
+  private volatile Map<Integer, Set<Pozycja>> polaWykorzystywanePodczasAkcji;
 
   /// Semafory, na których czekać będą
   /// Zakładam, że nie więcej niż jeden wątek, będzie sterował jedną postacią.
@@ -34,6 +33,8 @@ public class MojaPlansza implements Plansza {
 
   private Semaphore mutex;
 
+  // Górne, lewe rogi postaci, tzn pozycja, zajmowana przez naszą postać, o najmniejszych współrzędnych.
+  private volatile Map<Integer, Pozycja> pozycjePostaci;
 
   /// Postacie na planszy.
   private volatile Set<Integer> naPlanszyLubOczekującyNaWejście;
@@ -56,14 +57,10 @@ public class MojaPlansza implements Plansza {
     postacieOczekująceNaPostać = new HashMap<>();
     postacieOczekująceNaPole = new HashMap<>();
     postacieNaKtóreOczekujePostać = new HashMap<>();
-    polaPotrzebneDoRuchu = new HashMap<>();
+    polaWykorzystywanePodczasAkcji = new HashMap<>();
     semafory = new HashMap<>();
     naPlanszyLubOczekującyNaWejście = new HashSet<>();
-    /*
-    for (int i = 0; i < POCZĄTKOWA_LICZBA_SEMAFORÓW; ++i) {
-      semafory.add(new Semaphore(0));
-    }
-    */
+    pozycjePostaci = new HashMap<>();
   }
 
   private int getPostaćId(Postać postać) {
@@ -80,11 +77,9 @@ public class MojaPlansza implements Plansza {
     return idPostaci;
   }
 
-  private boolean czyAkcjaMożliwa(Postać postać) {
-    int idPostaci = getPostaćId(postać);
-
+  private boolean czyAkcjaMożliwa(int idPostaci) {
     /// Zakładam, że istnieje taki set przypisany do id postaci.
-    for (Pozycja pozycja : polaPotrzebneDoRuchu.get(idPostaci)) {
+    for (Pozycja pozycja : polaWykorzystywanePodczasAkcji.get(idPostaci)) {
       if (plansza[pozycja.getX()][pozycja.getY()] != PUSTE_POLE) {
         return false;
       }
@@ -96,13 +91,24 @@ public class MojaPlansza implements Plansza {
     return true;
   }
 
+  private boolean czyZablokowane(int idPostaci) {
+    /// Zakładam, że istnieje taki set przypisany do id postaci.
+    for (Pozycja pozycja : polaWykorzystywanePodczasAkcji.get(idPostaci)) {
+      if (zablokowanePola.contains(pozycja)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   private void dodajWymaganePola(Postać postać, int wiersz, int kolumna) {
     int idPostaci = getPostaćId(postać);
 
-    if (!polaPotrzebneDoRuchu.containsKey(idPostaci)) {
-      polaPotrzebneDoRuchu.put(idPostaci, new HashSet<>());
+    if (!polaWykorzystywanePodczasAkcji.containsKey(idPostaci)) {
+      polaWykorzystywanePodczasAkcji.put(idPostaci, new HashSet<>());
     }
-    Set<Pozycja> pozycje = polaPotrzebneDoRuchu.get(idPostaci);
+    Set<Pozycja> pozycje = polaWykorzystywanePodczasAkcji.get(idPostaci);
 
     for (int i = wiersz; i < wiersz + postać.dajWysokość(); ++i) {
       for (int j = kolumna; j < kolumna + postać.dajSzerokość(); ++j) {
@@ -114,14 +120,17 @@ public class MojaPlansza implements Plansza {
   private void przemieśćSię(Postać postać) {
     int idPostaci = getPostaćId(postać);
 
-    usuńSięZZależności(postać);
+    /// Nie będe musiał usuwać się z list osób, na które oczekuję oraz później sie do nich dodawać,
+    /// gdyż właśnie wykonuję akcje, więc nie mogę czekać na nikogo.
+    usuńSięOdOczekującychNaCiebie(postać);
     ustawSięNaPozycjach(postać);
-    dodajSięDoZależności(postać);
+    dodajSięDoOczekującychNaCiebie(postać);
 
-    polaPotrzebneDoRuchu.remove(idPostaci);
+    /// Po wykonaniu ruchu nie potrzebuję już żadnego pola, aby wykonać ruch.
+    polaWykorzystywanePodczasAkcji.remove(idPostaci);
   }
 
-  private void usuńSięZZależności(Postać postać) {
+  private void usuńSięOdOczekującychNaCiebie(Postać postać) {
     int idPostaci = getPostaćId(postać);
     Set<Integer> oczekującyNaMnie = postacieOczekująceNaPostać.get(idPostaci);
 
@@ -133,14 +142,15 @@ public class MojaPlansza implements Plansza {
   }
 
   private void usuńSięOdOczekującego(int idPostaci, int idOczekującego) {
-    /// Zakładam, że każdy oczekujący na liste oczekującego na niego (możliwe, że pustą).
+    Set<Integer> postacieOczekująceNaMnie = postacieOczekująceNaPostać.get(idPostaci);
+    Set<Integer> oczekiwaniPrzezOczekującego = postacieNaKtóreOczekujePostać.get(idOczekującego);
+
+    /// Usuwam się z listy postaci oczekiwanych przez oczekującego mnie
+    /// oraz usuwam oczekującego na mnie z mojej listy oczekujących.
+    oczekiwaniPrzezOczekującego.remove(idPostaci);
+    postacieOczekująceNaMnie.remove(idOczekującego);
+
     Set<Integer> postacieOczekująceNaOczekującego = postacieOczekująceNaPostać.get(idOczekującego);
-
-    /// Usuwam się z listy postaci, na które oczekuje postać, która na mnie oczekuje :)
-    postacieNaKtóreOczekujePostać.get(idOczekującego).remove(idPostaci);
-    /// Usuwam postać ze swojej listy.
-    postacieNaKtóreOczekujePostać.get(idPostaci).remove(idOczekującego);
-
     /// Rekurencyjnie usuwam się z list postaci, które oczekiwały na oczekującego
     /// (ponieważ wówczas oczekiwały również na mnie).
     for (int oczekującyNaOczekującego : postacieOczekująceNaOczekującego) {
@@ -148,18 +158,77 @@ public class MojaPlansza implements Plansza {
     }
   }
 
-  private void ustawSięNaPozycjach(Postać postać) {
+  private void usuńSięOdOczekiwanychPrzezCiebie(Postać postać) {
     int idPostaci = getPostaćId(postać);
-    Set<Pozycja> pozycje = polaPotrzebneDoRuchu.get(idPostaci);
-    for (Pozycja pozycja : pozycje) {
-      /// Ustawiam się na każdym z pól.
-      plansza[pozycja.getX()][pozycja.getY()] = idPostaci;
+    Set<Integer> oczekiwaniPrzezeMnie = postacieNaKtóreOczekujePostać.get(idPostaci);
+
+    for (int idOczekiwanego : oczekiwaniPrzezeMnie) {
+      usuńSięOdOczekiwanego(idPostaci, idOczekiwanego);
+    }
+
+    assert oczekiwaniPrzezeMnie.isEmpty();
+  }
+
+  private void usuńSięOdOczekiwanego(int idPostaci, int idOczekiwanego) {
+    Set<Integer> postacieOczekiwanePrzezeMnie = postacieNaKtóreOczekujePostać.get(idPostaci);
+    Set<Integer> oczekującyPrzezOczekiwanego = postacieOczekująceNaPostać.get(idOczekiwanego);
+
+    /// Usuwam się z listy postaci oczekującyc przez oczekiwanego przeze mnie
+    /// oraz usuwam oczekiwanego na mnie z mojej listy oczekiwanych.
+    postacieOczekiwanePrzezeMnie.remove(idOczekiwanego);
+    oczekującyPrzezOczekiwanego.remove(idPostaci);
+
+    Set<Integer> postacieOczekiwanePrzezOczekiwanego = postacieNaKtóreOczekujePostać.get(idOczekiwanego);
+    /// Rekurencyjnie usuwam się z list postaci, które oczekiwały na oczekującego
+    /// (ponieważ wówczas oczekiwały również na mnie).
+    for (int oczekiwanyPrzezOczekiwanego : postacieOczekiwanePrzezOczekiwanego) {
+      usuńSięOdOczekiwanego(idPostaci, oczekiwanyPrzezOczekiwanego);
     }
   }
 
-  private void dodajSięDoZależności(Postać postać) {
+  private void ustawSięNaPozycjach(Postać postać) {
     int idPostaci = getPostaćId(postać);
-    Set<Pozycja> pozycje = polaPotrzebneDoRuchu.get(idPostaci);
+    Set<Pozycja> pozycje = polaWykorzystywanePodczasAkcji.get(idPostaci);
+
+    /// Inicjalizacja niepotrzebna, ale IDE pokazywało błąd.
+    int minX = Integer.MAX_VALUE;
+    int minY = Integer.MAX_VALUE;
+    boolean pierwsza = true;
+
+    for (Pozycja pozycja : pozycje) {
+      /// Ustawiam się na każdym z pól.
+      plansza[pozycja.getX()][pozycja.getY()] = idPostaci;
+
+      if (pierwsza) {
+        minX = pozycja.getX();
+        minY = pozycja.getY();
+        pierwsza = false;
+      }
+
+      if (minX > pozycja.getX()) {
+        minX = pozycja.getX();
+      }
+      if (minY > pozycja.getY()) {
+        minY = pozycja.getY();
+      }
+    }
+
+    /// Ustawiam górny, lewy róg.
+    pozycjePostaci.put(idPostaci, new Pozycja(minX, minY));
+  }
+
+  private void wyczyśćPlansze(Postać postać) {
+    int idPostaci = getPostaćId(postać);
+    Set<Pozycja> pozycje = polaWykorzystywanePodczasAkcji.get(idPostaci);
+    for (Pozycja pozycja : pozycje) {
+      /// Ustawiam się na każdym z pól.
+      plansza[pozycja.getX()][pozycja.getY()] = PUSTE_POLE;
+    }
+  }
+
+  private void dodajSięDoOczekującychNaCiebie(Postać postać) {
+    int idPostaci = getPostaćId(postać);
+    Set<Pozycja> pozycje = polaWykorzystywanePodczasAkcji.get(idPostaci);
 
     for (Pozycja pozycja : pozycje) {
       /// Sprawdzam czy ktoś oczekuje na daną pozycje na planszy.
@@ -190,24 +259,30 @@ public class MojaPlansza implements Plansza {
 
   }
 
-  private void dodajSięDoOczekującychOrazAktualizujZależności(Postać postać) {
+  private void dodajSięDoOczekiwanychPrzezCiebie(Postać postać) {
     int idPostaci = getPostaćId(postać);
-    Set<Pozycja> pozycje = polaPotrzebneDoRuchu.get(idPostaci);
+    Set<Pozycja> pozycje = polaWykorzystywanePodczasAkcji.get(idPostaci);
 
     for (Pozycja pozycja : pozycje) {
-      dodajSięDoOczekującychNaPoleOrazAktualizujZależności(idPostaci, pozycja);
+      dodajSięDoOczekiwanegoNaPozycji(idPostaci, pozycja);
     }
   }
 
-  private void dodajSięDoOczekującychNaPoleOrazAktualizujZależności(int idPostaci, Pozycja pozycja) {
-    /// Jeśli nie istnieje lista oczekujących na dane pole, to ją tworzę.
-    if (!postacieOczekująceNaPole.containsKey(pozycja)) {
-      postacieOczekująceNaPole.put(pozycja, new LinkedList<>());
+  private void dodajSięDoOczekujących(Postać postać) {
+    int idPostaci = getPostaćId(postać);
+    Set<Pozycja> pozycje = polaWykorzystywanePodczasAkcji.get(idPostaci);
+
+    for (Pozycja pozycja : pozycje) {
+      if (!postacieOczekująceNaPole.containsKey(pozycja)) {
+        postacieOczekująceNaPole.put(pozycja, new LinkedList<>());
+      }
+
+      /// Dodaje się do listy.
+      postacieOczekująceNaPole.get(pozycja).add(idPostaci);
     }
+  }
 
-    /// Dodaje się do listy.
-    postacieOczekująceNaPole.get(pozycja).add(idPostaci);
-
+  private void dodajSięDoOczekiwanegoNaPozycji(int idPostaci, Pozycja pozycja) {
     /// Dodaję wszystkich, na których oczekuję oraz
     /// dodaję się na ich listy postaci, które na nich oczekują.
     int idObecnejPostaci = plansza[pozycja.getX()][pozycja.getY()];
@@ -234,7 +309,12 @@ public class MojaPlansza implements Plansza {
 
   @Override
   public void postaw(Postać postać, int wiersz, int kolumna) throws InterruptedException {
-    mutex.acquire();
+    try {
+      mutex.acquire();
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
+
     int idPostaci = getPostaćId(postać);
     if (naPlanszyLubOczekującyNaWejście.contains(idPostaci)) {
       throw new IllegalArgumentException("Postać jest już na planszy.");
@@ -252,8 +332,9 @@ public class MojaPlansza implements Plansza {
 
     dodajWymaganePola(postać, wiersz, kolumna);
 
-    if (!czyAkcjaMożliwa(postać)) {
-      dodajSięDoOczekującychOrazAktualizujZależności(postać);
+    if (!czyAkcjaMożliwa(idPostaci)) {
+      dodajSięDoOczekujących(postać);
+      dodajSięDoOczekiwanychPrzezCiebie(postać);
       mutex.release();
       try {
         semafory.get(idPostaci).acquire();
@@ -274,17 +355,40 @@ public class MojaPlansza implements Plansza {
 
   @Override
   public void usuń(Postać postać) {
+    try {
+      mutex.acquire();
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
+
     int idPostaci = getPostaćId(postać);
     if (!naPlanszyLubOczekującyNaWejście.contains(idPostaci)) {
       throw new IllegalArgumentException("Postaci nie ma na planszy.");
-    } else {
-      naPlanszyLubOczekującyNaWejście.remove(idPostaci);
-      semafory.remove(idPostaci);
-      postacieOczekująceNaPostać.remove(idPostaci);
-      postacieNaKtóreOczekujePostać.remove(idPostaci);
     }
 
-    // część dalsza
+    Pozycja pozycjaPostaci = pozycjePostaci.get(idPostaci);
+
+    dodajWymaganePola(postać, pozycjaPostaci.getX(), pozycjaPostaci.getY());
+
+    if (czyZablokowane(idPostaci)) {
+      mutex.release();
+      try {
+        semafory.get(idPostaci).acquire();
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+    }
+
+    wyczyśćPlansze(postać);
+    usuńSięOdOczekującychNaCiebie(postać);
+    usuńSięOdOczekiwanychPrzezCiebie(postać);
+
+    /// wybudź oczekujących
+
+    naPlanszyLubOczekującyNaWejście.remove(idPostaci);
+    semafory.remove(idPostaci);
+    postacieOczekująceNaPostać.remove(idPostaci);
+    postacieNaKtóreOczekujePostać.remove(idPostaci);
   }
 
   @Override
