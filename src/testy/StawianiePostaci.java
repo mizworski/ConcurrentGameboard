@@ -19,12 +19,14 @@ class StawianiePostaci implements Runnable {
   @Override
   public void run() {
     Thread t = Thread.currentThread();
-    System.out.println("Thread started: " + t.getName());
+    System.out.println("Thread started Postaw: " + t.getName());
     try {
       plansza.postaw(postać, x, y);
     } catch (InterruptedException e) {
       System.out.println(e.getMessage());
     }
-    System.out.println("Thread ended: " + t.getName());
+    System.out.println("Thread ended Postaw, started Usuń: " + t.getName());
+    plansza.usuń(postać);
+    System.out.println("Thread ended Usuń: " + t.getName());
   }
 }

@@ -39,6 +39,9 @@ public class MojaPlansza implements Plansza {
   /// Postacie na planszy.
   private volatile Set<Integer> naPlanszyLubOczekującyNaWejście;
 
+  /// Postacie, które można będzie wybudzić.
+  private volatile LinkedList<Integer> doWybudzenia;
+
   public MojaPlansza(int wysokość, int szerokość) {
     this.wysokość = wysokość;
     this.szerokość = szerokość;
@@ -61,9 +64,10 @@ public class MojaPlansza implements Plansza {
     semafory = new HashMap<>();
     naPlanszyLubOczekującyNaWejście = new HashSet<>();
     pozycjePostaci = new HashMap<>();
+    doWybudzenia = new LinkedList<>();
   }
 
-  private int getPostaćId(Postać postać) {
+  private Integer getPostaćId(Postać postać) {
     int idPostaci;
 
     if (postacie.containsKey(postać)) {
@@ -138,17 +142,16 @@ public class MojaPlansza implements Plansza {
       usuńSięOdOczekującego(idPostaci, idOczekującego);
     }
 
+    oczekującyNaMnie.clear();
+
     assert oczekującyNaMnie.isEmpty();
   }
 
   private void usuńSięOdOczekującego(int idPostaci, int idOczekującego) {
-    Set<Integer> postacieOczekująceNaMnie = postacieOczekująceNaPostać.get(idPostaci);
     Set<Integer> oczekiwaniPrzezOczekującego = postacieNaKtóreOczekujePostać.get(idOczekującego);
 
-    /// Usuwam się z listy postaci oczekiwanych przez oczekującego mnie
-    /// oraz usuwam oczekującego na mnie z mojej listy oczekujących.
+    /// Usuwam się z listy postaci oczekiwanych przez oczekującego mnie.
     oczekiwaniPrzezOczekującego.remove(idPostaci);
-    postacieOczekująceNaMnie.remove(idOczekującego);
 
     Set<Integer> postacieOczekująceNaOczekującego = postacieOczekująceNaPostać.get(idOczekującego);
     /// Rekurencyjnie usuwam się z list postaci, które oczekiwały na oczekującego
@@ -166,16 +169,15 @@ public class MojaPlansza implements Plansza {
       usuńSięOdOczekiwanego(idPostaci, idOczekiwanego);
     }
 
+    oczekiwaniPrzezeMnie.clear();
+
     assert oczekiwaniPrzezeMnie.isEmpty();
   }
 
   private void usuńSięOdOczekiwanego(int idPostaci, int idOczekiwanego) {
-    Set<Integer> postacieOczekiwanePrzezeMnie = postacieNaKtóreOczekujePostać.get(idPostaci);
     Set<Integer> oczekującyPrzezOczekiwanego = postacieOczekująceNaPostać.get(idOczekiwanego);
 
-    /// Usuwam się z listy postaci oczekującyc przez oczekiwanego przeze mnie
-    /// oraz usuwam oczekiwanego na mnie z mojej listy oczekiwanych.
-    postacieOczekiwanePrzezeMnie.remove(idOczekiwanego);
+    /// Usuwam się z listy postaci oczekującyc przez oczekiwanego przeze mnie.
     oczekującyPrzezOczekiwanego.remove(idPostaci);
 
     Set<Integer> postacieOczekiwanePrzezOczekiwanego = postacieNaKtóreOczekujePostać.get(idOczekiwanego);
@@ -282,6 +284,16 @@ public class MojaPlansza implements Plansza {
     }
   }
 
+  private void usuńSięZOczekujących(Postać postać) {
+    Integer idPostaci = getPostaćId(postać);
+    Set<Pozycja> pozycje = polaWykorzystywanePodczasAkcji.get(idPostaci);
+
+    for (Pozycja pozycja : pozycje) {
+      /// Usuwam się z listy.
+      postacieOczekująceNaPole.get(pozycja).remove(idPostaci);
+    }
+  }
+
   private void dodajSięDoOczekiwanegoNaPozycji(int idPostaci, Pozycja pozycja) {
     /// Dodaję wszystkich, na których oczekuję oraz
     /// dodaję się na ich listy postaci, które na nich oczekują.
@@ -341,6 +353,7 @@ public class MojaPlansza implements Plansza {
       } catch (InterruptedException e) {
         e.printStackTrace();
       }
+      usuńSięZOczekujących(postać);
     }
 
     przemieśćSię(postać);
@@ -361,7 +374,7 @@ public class MojaPlansza implements Plansza {
       e.printStackTrace();
     }
 
-    int idPostaci = getPostaćId(postać);
+    Integer idPostaci = getPostaćId(postać);
     if (!naPlanszyLubOczekującyNaWejście.contains(idPostaci)) {
       throw new IllegalArgumentException("Postaci nie ma na planszy.");
     }
@@ -379,9 +392,17 @@ public class MojaPlansza implements Plansza {
       }
     }
 
+    Set<Integer> oczekującyNaMnie = new HashSet<>(postacieOczekująceNaPostać.get(idPostaci));
+
     wyczyśćPlansze(postać);
     usuńSięOdOczekującychNaCiebie(postać);
     usuńSięOdOczekiwanychPrzezCiebie(postać);
+
+    assert oczekującyNaMnie.size() != 0;
+
+    wyznaczPostacieDoWybudzenia(oczekującyNaMnie);
+
+    /// do obudzenia lista oczekujących na mnie
 
     /// wybudź oczekujących
 
@@ -389,6 +410,37 @@ public class MojaPlansza implements Plansza {
     semafory.remove(idPostaci);
     postacieOczekująceNaPostać.remove(idPostaci);
     postacieNaKtóreOczekujePostać.remove(idPostaci);
+
+    assert !Objects.equals(doWybudzenia.peek(), idPostaci);
+    if (doWybudzenia.size() == 0) {
+      mutex.release();
+    } else {
+      semafory.get(doWybudzenia.poll()).release();
+    }
+  }
+
+  private void wyznaczPostacieDoWybudzenia(Set<Integer> oczekującyNaMnie) {
+    List<Integer> doUsunięcia = new Vector<>();
+
+    for (Integer idBudzonego : doWybudzenia) {
+      if (postacieOczekująceNaPostać.get(idBudzonego).size() != 0) {
+        doUsunięcia.add(idBudzonego);
+      }
+    }
+
+    for (Integer idUsuwanego : doUsunięcia) {
+      //noinspection SuspiciousMethodCalls
+      doWybudzenia.remove(doUsunięcia);
+    }
+
+    for (Integer idOczekującego : oczekującyNaMnie) {
+      if (postacieNaKtóreOczekujePostać.get(idOczekującego).size() == 0) {
+        if (!doWybudzenia.contains(idOczekującego)) {
+          doWybudzenia.add(idOczekującego);
+        }
+      }
+    }
+
   }
 
   @Override
