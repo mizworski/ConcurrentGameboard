@@ -11,27 +11,32 @@ public class MojaPlansza implements Plansza {
   private int licznikPostaci;
 
   /// Plansza wraz z identyfikatorami postaci, które znajdują się na poszczególnym polu.
-  private int[][] plansza;
+  private volatile int[][] plansza;
   /// Identyfikatory postaci.
-  private Map<Postać, Integer> postacie;
+  private volatile Map<Postać, Integer> postacie;
   /// Pola obecnie zablokowane przez metodę sprawdź.
-  private Set<Pozycja> zablokowanePola;
+  private volatile Set<Pozycja> zablokowanePola;
 
   /// Wszyscy, którzy czekają na ruch danej postaci.
-  private Map<Integer, Set<Integer>> postacieOczekująceNaPostać;
+  private volatile Map<Integer, Set<Integer>> postacieOczekująceNaPostać;
   /// Postacie, które muszą zostać ruszone, aby umożliwić ruch danej postaci.
-  private Map<Integer, Set<Integer>> postacieNaKtóreOczekujePostać;
+  private volatile Map<Integer, Set<Integer>> postacieNaKtóreOczekujePostać;
 
   /// Lista postaci obecnie oczekujących na zwolnienie się danego pola.
-  private Map<Pozycja, LinkedList<Integer>> postacieOczekująceNaPole;
+  private volatile Map<Pozycja, LinkedList<Integer>> postacieOczekująceNaPole;
 
   /// Pola, których podana postać wymaga, aby wykonać swój ruch.
-  private Map<Integer, Set<Pozycja>> polaPotrzebneDoRuchu;
+  private volatile Map<Integer, Set<Pozycja>> polaPotrzebneDoRuchu;
 
-  private Map<Integer, Semaphore> semafory;
+  /// Semafory, na których czekać będą
+  /// Zakładam, że nie więcej niż jeden wątek, będzie sterował jedną postacią.
+  private volatile Map<Integer, Semaphore> semafory;
+
+  private Semaphore mutex;
+
 
   /// Postacie na planszy.
-  private Set<Integer> naPlanszyLubOczekującyNaWejście;
+  private volatile Set<Integer> naPlanszyLubOczekującyNaWejście;
 
   public MojaPlansza(int wysokość, int szerokość) {
     this.wysokość = wysokość;
@@ -45,6 +50,15 @@ public class MojaPlansza implements Plansza {
       }
     }
 
+    mutex = new Semaphore(1);
+    postacie = new HashMap<>();
+    zablokowanePola = new HashSet<>();
+    postacieOczekująceNaPostać = new HashMap<>();
+    postacieOczekująceNaPole = new HashMap<>();
+    postacieNaKtóreOczekujePostać = new HashMap<>();
+    polaPotrzebneDoRuchu = new HashMap<>();
+    semafory = new HashMap<>();
+    naPlanszyLubOczekującyNaWejście = new HashSet<>();
     /*
     for (int i = 0; i < POCZĄTKOWA_LICZBA_SEMAFORÓW; ++i) {
       semafory.add(new Semaphore(0));
@@ -86,13 +100,13 @@ public class MojaPlansza implements Plansza {
     int idPostaci = getPostaćId(postać);
 
     if (!polaPotrzebneDoRuchu.containsKey(idPostaci)) {
-      polaPotrzebneDoRuchu.put(idPostaci, Collections.emptySet());
+      polaPotrzebneDoRuchu.put(idPostaci, new HashSet<>());
     }
     Set<Pozycja> pozycje = polaPotrzebneDoRuchu.get(idPostaci);
 
     for (int i = wiersz; i < wiersz + postać.dajWysokość(); ++i) {
       for (int j = kolumna; j < kolumna + postać.dajSzerokość(); ++j) {
-        pozycje.add(new Pozycja(wiersz, kolumna));
+        pozycje.add(new Pozycja(i, j));
       }
     }
   }
@@ -220,6 +234,7 @@ public class MojaPlansza implements Plansza {
 
   @Override
   public void postaw(Postać postać, int wiersz, int kolumna) throws InterruptedException {
+    mutex.acquire();
     int idPostaci = getPostaćId(postać);
     if (naPlanszyLubOczekującyNaWejście.contains(idPostaci)) {
       throw new IllegalArgumentException("Postać jest już na planszy.");
@@ -231,19 +246,25 @@ public class MojaPlansza implements Plansza {
       // >inny proces próbuje postawić tę postać gdzieś indziej.
       semafory.put(idPostaci, new Semaphore(0));
       naPlanszyLubOczekującyNaWejście.add(idPostaci);
-      postacieOczekująceNaPostać.put(idPostaci, Collections.emptySet());
-      postacieNaKtóreOczekujePostać.put(idPostaci, Collections.emptySet());
+      postacieOczekująceNaPostać.put(idPostaci, new HashSet<>());
+      postacieNaKtóreOczekujePostać.put(idPostaci, new HashSet<>());
     }
 
     dodajWymaganePola(postać, wiersz, kolumna);
 
     if (!czyAkcjaMożliwa(postać)) {
       dodajSięDoOczekującychOrazAktualizujZależności(postać);
-      semafory.get(idPostaci).acquire();
+      mutex.release();
+      try {
+        semafory.get(idPostaci).acquire();
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
     }
 
     przemieśćSię(postać);
 
+    mutex.release();
   }
 
   @Override
