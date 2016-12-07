@@ -12,9 +12,9 @@ public class PrzesuwaniePoPlanszy {
   public static void main(String[] args) {
 
     simpleTest();
-//    simpleTest2(6);
-//    simpleTest3(8, 4, 5);
-//    simpleTest3(8, 2, 3);
+    simpleTest2(6);
+    simpleTest3(8, 4, 5);
+    simpleTest3(8, 2, 3);
   }
 
   private static void simpleTest2(int szerokość) {
@@ -60,8 +60,8 @@ public class PrzesuwaniePoPlanszy {
 
   private static void simpleTest() {
     MojaPlansza plansza = new MojaPlansza(5, 5);
-    MojaPostać p1 = new MojaPostać(2, 1);
-    MojaPostać p2 = new MojaPostać(2, 1);
+    MojaPostać p1 = new MojaPostać(1, 1);
+    MojaPostać p2 = new MojaPostać(1, 1);
 
     Kierunek[] kierunkiArr1 = {Kierunek.DÓŁ, Kierunek.PRAWO, Kierunek.GÓRA, Kierunek.LEWO};
     Kierunek[] kierunkiArr2 = {Kierunek.GÓRA, Kierunek.LEWO, Kierunek.DÓŁ, Kierunek.PRAWO};
