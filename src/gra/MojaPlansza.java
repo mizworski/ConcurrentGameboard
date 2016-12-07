@@ -88,8 +88,6 @@ public class MojaPlansza implements Plansza {
 
     przemieśćSię(postać);
 
-    printMapa(); //todo temp
-
     mutex.release();
   }
 
@@ -114,8 +112,6 @@ public class MojaPlansza implements Plansza {
     przemieśćSię(postać);
     wyczyśćPlansze(zwalnianePola);
     wyznaczPostacieDoWybudzenia(wcześniejOczekującyNaMnie);
-
-    printMapa(); //todo temp
 
     if (doWybudzenia.size() == 0) {
       mutex.release();
@@ -158,8 +154,6 @@ public class MojaPlansza implements Plansza {
     semafory.remove(idPostaci);
     postacieOczekująceNaPostać.remove(idPostaci);
     postacieNaKtóreOczekujePostać.remove(idPostaci);
-
-    printMapa(); //todo temp
 
     if (doWybudzenia.size() == 0) {
       mutex.release();
@@ -241,7 +235,7 @@ public class MojaPlansza implements Plansza {
     int idPostaci = getPostaćId(postać);
 
     if (!polaWykorzystywanePodczasAkcji.containsKey(idPostaci)) {
-      polaWykorzystywanePodczasAkcji.put(idPostaci, new HashSet<>());
+      polaWykorzystywanePodczasAkcji.put(idPostaci, new HashSet<Pozycja>());
     }
     Set<Pozycja> pozycje = polaWykorzystywanePodczasAkcji.get(idPostaci);
 
@@ -353,7 +347,7 @@ public class MojaPlansza implements Plansza {
     for (Pozycja pozycja : pozycje) {
       /// Sprawdzam czy ktoś oczekuje na daną pozycje na planszy.
       if (!postacieOczekująceNaPole.containsKey(pozycja)) {
-        postacieOczekująceNaPole.put(pozycja, new LinkedList<>());
+        postacieOczekująceNaPole.put(pozycja, new LinkedList<Integer>());
       }
 
       for (int idOczekującego : postacieOczekująceNaPole.get(pozycja)) {
@@ -378,7 +372,7 @@ public class MojaPlansza implements Plansza {
 
     for (Pozycja pozycja : pozycje) {
       if (!postacieOczekująceNaPole.containsKey(pozycja)) {
-        postacieOczekująceNaPole.put(pozycja, new LinkedList<>());
+        postacieOczekująceNaPole.put(pozycja, new LinkedList<Integer>());
       }
 
       /// Dodaje się do listy.
@@ -406,7 +400,7 @@ public class MojaPlansza implements Plansza {
 
   private void dodajSięDoOczekiwanegoNaPozycji(int idPostaci, Pozycja pozycja) {
     int idObecnejPostaci = plansza[pozycja.getX()][pozycja.getY()];
-    if (idObecnejPostaci != PUSTE_POLE && idObecnejPostaci != idPostaci) {
+    if (idObecnejPostaci != PUSTE_POLE) {
       dodajPostacieNaKtóreOczekujesz(idPostaci, idObecnejPostaci);
     }
 
@@ -433,8 +427,8 @@ public class MojaPlansza implements Plansza {
       /// >inny proces próbuje postawić tę postać gdzieś indziej.
       semafory.put(idPostaci, new Semaphore(0));
       naPlanszyLubOczekującyNaWejście.add(idPostaci);
-      postacieOczekująceNaPostać.put(idPostaci, new HashSet<>());
-      postacieNaKtóreOczekujePostać.put(idPostaci, new HashSet<>());
+      postacieOczekująceNaPostać.put(idPostaci, new HashSet<Integer>());
+      postacieNaKtóreOczekujePostać.put(idPostaci, new HashSet<Integer>());
     }
   }
 
@@ -491,14 +485,6 @@ public class MojaPlansza implements Plansza {
     /// Sprawdzam czy ktoś z oczekiwanych przeze mnie nie oczekuje na oczekującego mnie.
 
     sprawdźCzyOczekiwanyOczekujeOczekującego(oczekiwaniPrzezCiebie, oczekującyNaCiebie);
-
-    /// Sprawdzam czy sam nie oczekuję na kogoś, kto oczekuje mnie.
-    Set<Integer> przecięcie = new HashSet<>(oczekiwaniPrzezCiebie);
-    przecięcie.retainAll(oczekującyNaCiebie);
-
-    if (przecięcie.size() > 0) {
-      throw new DeadlockException();
-    }
   }
 
   private void sprawdźCzyOczekiwanyOczekujeOczekującego(Set<Integer> oczekiwaniPrzezCiebie, Set<Integer> oczekującyNaCiebie) throws DeadlockException {
@@ -536,7 +522,7 @@ public class MojaPlansza implements Plansza {
     Pozycja pozycjaPostaci = pozycjePostaci.get(idPostaci);
 
     if (!polaWykorzystywanePodczasAkcji.containsKey(idPostaci)) {
-      polaWykorzystywanePodczasAkcji.put(idPostaci, new HashSet<>());
+      polaWykorzystywanePodczasAkcji.put(idPostaci, new HashSet<Pozycja>());
     }
     /// Nowe pola, które będę zajmował.
     Set<Pozycja> wymaganePola = polaWykorzystywanePodczasAkcji.get(idPostaci);
@@ -649,27 +635,6 @@ public class MojaPlansza implements Plansza {
         if (!doWybudzenia.contains(idOczekującego)) {
           doWybudzenia.add(idOczekującego);
         }
-      }
-    }
-
-  }
-
-  private void printMapa() {
-    for (int i = 0; i < 15; ++i) { System.out.println(); }
-    int rozm = 1;
-    System.out.println();
-    for (int i = 0; i < wysokość; ++i) {
-      for (int wys = 0; wys < rozm; ++wys) {
-        for (int j = 0; j < szerokość; ++j) {
-          for (int szer = 0; szer < rozm; ++szer) {
-            if (plansza[i][j] == -1) {
-              System.out.print("-");
-            } else {
-              System.out.print(Integer.toHexString(plansza[i][j]));
-            }
-          }
-        }
-        System.out.print("\n");
       }
     }
 
