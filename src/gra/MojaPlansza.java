@@ -84,7 +84,8 @@ public class MojaPlansza implements Plansza {
   private boolean czyAkcjaMożliwa(int idPostaci) {
     /// Zakładam, że istnieje taki set przypisany do id postaci.
     for (Pozycja pozycja : polaWykorzystywanePodczasAkcji.get(idPostaci)) {
-      if (plansza[pozycja.getX()][pozycja.getY()] != PUSTE_POLE) {
+      if (plansza[pozycja.getX()][pozycja.getY()] != PUSTE_POLE
+        /* plansza[pozycja.getX()][pozycja.getY()] != idPostaci */) {
         return false;
       }
       if (zablokowanePola.contains(pozycja)) {
@@ -192,36 +193,13 @@ public class MojaPlansza implements Plansza {
     int idPostaci = getPostaćId(postać);
     Set<Pozycja> pozycje = polaWykorzystywanePodczasAkcji.get(idPostaci);
 
-    /// Inicjalizacja niepotrzebna, ale IDE pokazywało błąd.
-    int minX = Integer.MAX_VALUE;
-    int minY = Integer.MAX_VALUE;
-    boolean pierwsza = true;
-
     for (Pozycja pozycja : pozycje) {
       /// Ustawiam się na każdym z pól.
       plansza[pozycja.getX()][pozycja.getY()] = idPostaci;
-
-      if (pierwsza) {
-        minX = pozycja.getX();
-        minY = pozycja.getY();
-        pierwsza = false;
-      }
-
-      if (minX > pozycja.getX()) {
-        minX = pozycja.getX();
-      }
-      if (minY > pozycja.getY()) {
-        minY = pozycja.getY();
-      }
     }
-
-    /// Ustawiam górny, lewy róg.
-    pozycjePostaci.put(idPostaci, new Pozycja(minX, minY));
   }
 
-  private void wyczyśćPlansze(Postać postać) {
-    int idPostaci = getPostaćId(postać);
-    Set<Pozycja> pozycje = polaWykorzystywanePodczasAkcji.get(idPostaci);
+  private void wyczyśćPlansze(Set<Pozycja> pozycje) {
     for (Pozycja pozycja : pozycje) {
       /// Ustawiam się na każdym z pól.
       plansza[pozycja.getX()][pozycja.getY()] = PUSTE_POLE;
@@ -230,7 +208,8 @@ public class MojaPlansza implements Plansza {
 
   private void dodajSięDoOczekującychNaCiebie(Postać postać) {
     int idPostaci = getPostaćId(postać);
-    Set<Pozycja> pozycje = polaWykorzystywanePodczasAkcji.get(idPostaci);
+//    Set<Pozycja> pozycje = ; //todo zmien na wyznaczenie
+    Set<Pozycja> pozycje = wyznaczPozycjePostaci(postać);
 
     for (Pozycja pozycja : pozycje) {
       /// Sprawdzam czy ktoś oczekuje na daną pozycje na planszy.
@@ -242,6 +221,21 @@ public class MojaPlansza implements Plansza {
         dodajSięDoZależnościOczekującego(idPostaci, idOczekującego);
       }
     }
+  }
+
+  private Set<Pozycja> wyznaczPozycjePostaci(Postać postać) {
+    Integer idPostaci = getPostaćId(postać);
+    Pozycja pozycjaPostaci = pozycjePostaci.get(idPostaci);
+
+    Set<Pozycja> res = new HashSet<>();
+
+    for (int i = pozycjaPostaci.getX(); i < pozycjaPostaci.getX() + postać.dajWysokość(); ++i) {
+      for (int j = pozycjaPostaci.getY(); j < pozycjaPostaci.getY() + postać.dajSzerokość(); ++j) {
+        res.add(new Pozycja(i, j));
+      }
+    }
+
+    return res;
   }
 
   private void dodajSięDoZależnościOczekującego(int idPostaci, int idOczekującego) {
@@ -261,15 +255,6 @@ public class MojaPlansza implements Plansza {
 
   }
 
-  private void dodajSięDoOczekiwanychPrzezCiebie(Postać postać) {
-    int idPostaci = getPostaćId(postać);
-    Set<Pozycja> pozycje = polaWykorzystywanePodczasAkcji.get(idPostaci);
-
-    for (Pozycja pozycja : pozycje) {
-      dodajSięDoOczekiwanegoNaPozycji(idPostaci, pozycja);
-    }
-  }
-
   private void dodajSięDoOczekujących(Postać postać) {
     int idPostaci = getPostaćId(postać);
     Set<Pozycja> pozycje = polaWykorzystywanePodczasAkcji.get(idPostaci);
@@ -284,9 +269,20 @@ public class MojaPlansza implements Plansza {
     }
   }
 
+  private void dodajSięDoOczekiwanychPrzezCiebie(Postać postać) {
+    int idPostaci = getPostaćId(postać);
+//    Set<Pozycja> pozycje = polaWykorzystywanePodczasAkcji.get(idPostaci); //todo zmien na wyznaczenie
+    Set<Pozycja> pozycje = wyznaczPozycjePostaci(postać);
+
+    for (Pozycja pozycja : pozycje) {
+      dodajSięDoOczekiwanegoNaPozycji(idPostaci, pozycja);
+    }
+  }
+
   private void usuńSięZOczekujących(Postać postać) {
     Integer idPostaci = getPostaćId(postać);
-    Set<Pozycja> pozycje = polaWykorzystywanePodczasAkcji.get(idPostaci);
+//    Set<Pozycja> pozycje = polaWykorzystywanePodczasAkcji.get(idPostaci); //todo zmien na wyznaczenie
+    Set<Pozycja> pozycje = wyznaczPozycjePostaci(postać);
 
     for (Pozycja pozycja : pozycje) {
       /// Usuwam się z listy.
@@ -328,6 +324,24 @@ public class MojaPlansza implements Plansza {
     }
 
     int idPostaci = getPostaćId(postać);
+
+    błądJeśliPostaćNaMapie(idPostaci);
+
+    /// Dodaję docelową pozycję na mapie.
+    pozycjePostaci.put(idPostaci, new Pozycja(wiersz, kolumna));
+
+    dodajWymaganePola(postać, wiersz, kolumna);
+
+    czekajJeśliAkcjaNiemożliwa(postać);
+
+    przemieśćSię(postać);
+
+    printMapa(); //todo TEMP
+
+    mutex.release();
+  }
+
+  private void błądJeśliPostaćNaMapie(int idPostaci) {
     if (naPlanszyLubOczekującyNaWejście.contains(idPostaci)) {
       throw new IllegalArgumentException("Postać jest już na planszy.");
     } else {
@@ -341,8 +355,10 @@ public class MojaPlansza implements Plansza {
       postacieOczekująceNaPostać.put(idPostaci, new HashSet<>());
       postacieNaKtóreOczekujePostać.put(idPostaci, new HashSet<>());
     }
+  }
 
-    dodajWymaganePola(postać, wiersz, kolumna);
+  private void czekajJeśliAkcjaNiemożliwa(Postać postać) {
+    int idPostaci = getPostaćId(postać);
 
     if (!czyAkcjaMożliwa(idPostaci)) {
       dodajSięDoOczekujących(postać);
@@ -355,15 +371,139 @@ public class MojaPlansza implements Plansza {
       }
       usuńSięZOczekujących(postać);
     }
-
-    przemieśćSię(postać);
-
-    mutex.release();
   }
 
   @Override
   public void przesuń(Postać postać, Kierunek kierunek) throws InterruptedException, DeadlockException {
+    try {
+      mutex.acquire();
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
 
+    Set<Pozycja> zwalnianePola = new HashSet<>();
+    Integer idPostaci = getPostaćId(postać);
+
+    sprawdżCzyPoprawnyRuch(postać, kierunek);
+    wyznaczPolaKtóreSięZmienią(postać, kierunek, zwalnianePola);
+    sprawdźDeadlock(postać);
+
+    czekajJeśliAkcjaNiemożliwa(postać);
+
+    Set<Integer> wcześniejOczekującyNaMnie = new HashSet<>(postacieOczekująceNaPostać.get(idPostaci));
+    przemieśćSię(postać);
+    wyczyśćPlansze(zwalnianePola);
+    wyznaczPostacieDoWybudzenia(wcześniejOczekującyNaMnie);
+
+    printMapa(); //todo TEMP
+
+    if (doWybudzenia.size() == 0) {
+      mutex.release();
+    } else {
+      semafory.get(doWybudzenia.poll()).release();
+    }
+
+  }
+
+  private void sprawdźDeadlock(Postać postać) throws DeadlockException {
+    Integer idPostaci = getPostaćId(postać);
+    Set<Pozycja> wymaganePola = polaWykorzystywanePodczasAkcji.get(idPostaci);
+
+    for (Pozycja pozycja : wymaganePola) {
+      Integer idPostaciNaPolu = plansza[pozycja.getX()][pozycja.getY()];
+      if (idPostaciNaPolu == PUSTE_POLE) {
+        continue;
+      }
+
+      Set<Integer> oczekiwaniPrzezPostaćNaPolu = postacieNaKtóreOczekujePostać.get(idPostaciNaPolu);
+
+      if (oczekiwaniPrzezPostaćNaPolu.contains(idPostaci)) {
+        throw new DeadlockException();
+      }
+    }
+  }
+
+  private void wyznaczPolaKtóreSięZmienią(Postać postać, Kierunek kierunek, Set<Pozycja> zwalnianePola) {
+    Integer idPostaci = getPostaćId(postać);
+    Pozycja pozycjaPostaci = pozycjePostaci.get(idPostaci);
+
+    if (!polaWykorzystywanePodczasAkcji.containsKey(idPostaci)) {
+      polaWykorzystywanePodczasAkcji.put(idPostaci, new HashSet<>());
+    }
+    Set<Pozycja> wymaganePola = polaWykorzystywanePodczasAkcji.get(idPostaci);
+
+    int naKtóreX = pozycjaPostaci.getX();
+    int zKtóregoX = pozycjaPostaci.getX();
+    int naKtóreY = pozycjaPostaci.getY();
+    int zKtóregoY = pozycjaPostaci.getY();
+
+    switch (kierunek) {
+      case GÓRA:
+        naKtóreX = pozycjaPostaci.getX() - 1;
+        zKtóregoX = pozycjaPostaci.getX() + postać.dajWysokość() - 1;
+        pozycjePostaci.put(idPostaci, new Pozycja(pozycjaPostaci.getX() - 1, pozycjaPostaci.getY()));
+        break;
+      case DÓŁ:
+        zKtóregoX = pozycjaPostaci.getX();
+        naKtóreX = pozycjaPostaci.getX() + postać.dajWysokość();
+        pozycjePostaci.put(idPostaci, new Pozycja(pozycjaPostaci.getX() + 1, pozycjaPostaci.getY()));
+        break;
+      case LEWO:
+        naKtóreY = pozycjaPostaci.getY() - 1;
+        zKtóregoY = pozycjaPostaci.getY() + postać.dajSzerokość() - 1;
+        pozycjePostaci.put(idPostaci, new Pozycja(pozycjaPostaci.getX(), pozycjaPostaci.getY() - 1));
+        break;
+      case PRAWO:
+        zKtóregoY = pozycjaPostaci.getY();
+        naKtóreY = pozycjaPostaci.getY() + postać.dajSzerokość();
+        pozycjePostaci.put(idPostaci, new Pozycja(pozycjaPostaci.getX(), pozycjaPostaci.getY() + 1));
+        break;
+    }
+
+    switch (kierunek) {
+      case GÓRA:
+      case DÓŁ:
+        for (int i = naKtóreY; i < naKtóreY + postać.dajSzerokość(); ++i) {
+          wymaganePola.add(new Pozycja(naKtóreX, i));
+          zwalnianePola.add(new Pozycja(zKtóregoX, i));
+        }
+        break;
+      case LEWO:
+      case PRAWO:
+        for (int i = naKtóreX; i < naKtóreX + postać.dajWysokość(); ++i) {
+          wymaganePola.add(new Pozycja(i, naKtóreY));
+          zwalnianePola.add(new Pozycja(i, zKtóregoY));
+        }
+        break;
+    }
+  }
+
+  private void sprawdżCzyPoprawnyRuch(Postać postać, Kierunek kierunek) {
+    Integer idPostaci = getPostaćId(postać);
+    Pozycja pozycjaPostaci = pozycjePostaci.get(idPostaci);
+
+    switch (kierunek) {
+      case GÓRA:
+        if (pozycjaPostaci.getX() == 0) {
+          throw new IllegalArgumentException("Nie można przesunąć się do góry.");
+        }
+        break;
+      case DÓŁ:
+        if (pozycjaPostaci.getX() + postać.dajWysokość() == wysokość) {
+          throw new IllegalArgumentException("Nie można przesunąć się w dół.");
+        }
+        break;
+      case LEWO:
+        if (pozycjaPostaci.getY() == 0) {
+          throw new IllegalArgumentException("Nie można przesunąć się w lewo.");
+        }
+        break;
+      case PRAWO:
+        if (pozycjaPostaci.getY() + postać.dajSzerokość() == szerokość) {
+          throw new IllegalArgumentException("Nie można przesunąć się w prawo.");
+        }
+        break;
+    }
   }
 
   @Override
@@ -379,7 +519,7 @@ public class MojaPlansza implements Plansza {
       throw new IllegalArgumentException("Postaci nie ma na planszy.");
     }
 
-    Pozycja pozycjaPostaci = pozycjePostaci.get(idPostaci);
+    Pozycja pozycjaPostaci = pozycjePostaci.remove(idPostaci);
 
     dodajWymaganePola(postać, pozycjaPostaci.getX(), pozycjaPostaci.getY());
 
@@ -392,26 +532,22 @@ public class MojaPlansza implements Plansza {
       }
     }
 
-    Set<Integer> oczekującyNaMnie = new HashSet<>(postacieOczekująceNaPostać.get(idPostaci));
+    Set<Integer> wcześniejOczekującyNaMnie = new HashSet<>(postacieOczekująceNaPostać.get(idPostaci));
+    Set<Pozycja> pozycje = polaWykorzystywanePodczasAkcji.get(idPostaci);
 
-    wyczyśćPlansze(postać);
+    wyczyśćPlansze(pozycje);
     usuńSięOdOczekującychNaCiebie(postać);
     usuńSięOdOczekiwanychPrzezCiebie(postać);
 
-    assert oczekującyNaMnie.size() != 0;
-
-    wyznaczPostacieDoWybudzenia(oczekującyNaMnie);
-
-    /// do obudzenia lista oczekujących na mnie
-
-    /// wybudź oczekujących
+    wyznaczPostacieDoWybudzenia(wcześniejOczekującyNaMnie);
 
     naPlanszyLubOczekującyNaWejście.remove(idPostaci);
     semafory.remove(idPostaci);
     postacieOczekująceNaPostać.remove(idPostaci);
     postacieNaKtóreOczekujePostać.remove(idPostaci);
 
-    assert !Objects.equals(doWybudzenia.peek(), idPostaci);
+    printMapa(); //todo TEMP
+
     if (doWybudzenia.size() == 0) {
       mutex.release();
     } else {
@@ -429,8 +565,7 @@ public class MojaPlansza implements Plansza {
     }
 
     for (Integer idUsuwanego : doUsunięcia) {
-      //noinspection SuspiciousMethodCalls
-      doWybudzenia.remove(doUsunięcia);
+      doWybudzenia.remove(idUsuwanego);
     }
 
     for (Integer idOczekującego : oczekującyNaMnie) {
@@ -445,6 +580,35 @@ public class MojaPlansza implements Plansza {
 
   @Override
   public void sprawdź(int wiersz, int kolumna, Akcja jeśliZajęte, Runnable jeśliWolne) {
+
+  }
+
+  /// temporary
+  private void printMapa() {
+    for (int i = 0; i < 15; ++i) System.out.println();
+    int rozm = 2;
+    System.out.println();
+    for (int i = 0; i < wysokość; ++i) {
+      for (int wys = 0; wys < rozm; ++wys) {
+        for (int j = 0; j < szerokość; ++j) {
+          for (int szer = 0; szer < rozm; ++szer) {
+            if (plansza[i][j] == -1) {
+              System.out.print("-");
+            } else {
+              System.out.print(plansza[i][j]);
+            }
+          }
+        }
+        System.out.print("\n");
+      }
+    }
+
+
+    try {
+      Thread.sleep(1000);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
 
   }
 }
