@@ -12,13 +12,8 @@ class Pozycja {
   }
 
   public boolean equals(Object other) {
-    if (other instanceof Pozycja) {
-      Pozycja otherPos = (Pozycja) other;
-      return this.x == ((Pozycja) other).getX()
-        && this.y == ((Pozycja) other).getY();
-    }
+    return other instanceof Pozycja && this.x == ((Pozycja) other).getX() && this.y == ((Pozycja) other).getY();
 
-    return false;
   }
 
   @Override

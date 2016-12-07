@@ -2,6 +2,7 @@ package testy;
 
 import gra.MojaPlansza;
 import gra.MojaPostać;
+import testy.zachowania.watkow.StawianiePostaci;
 
 public class StawianieNaPlanszy {
 

@@ -1,15 +1,15 @@
-package testy;
+package testy.zachowania.watkow;
 
 import gra.Plansza;
 import gra.Postać;
 
-class StawianiePostaci implements Runnable {
+public class StawianiePostaci implements Runnable {
   private final Plansza plansza;
   private final Postać postać;
   private final int x;
   private final int y;
 
-  StawianiePostaci(Plansza plansza, Postać postać, int x, int y) {
+  public StawianiePostaci(Plansza plansza, Postać postać, int x, int y) {
     this.plansza = plansza;
     this.postać = postać;
     this.x = x;

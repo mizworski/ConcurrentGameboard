@@ -3,18 +3,18 @@ package testy;
 import gra.Kierunek;
 import gra.MojaPlansza;
 import gra.MojaPostać;
+import testy.zachowania.watkow.PrzesuwaniePostaci;
 
 import java.util.ArrayList;
-import java.util.Collections;
 
 public class PrzesuwaniePoPlanszy {
 
   public static void main(String[] args) {
 
-    simpleTest();
-    simpleTest2(6);
+//    simpleTest();
+//    simpleTest2(6);
     simpleTest3(8,4,5);
-    simpleTest3(8,2,3);
+//    simpleTest3(8,2,3);
   }
 
   private static void simpleTest2(int szerokość) {

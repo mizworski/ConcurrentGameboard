@@ -1,12 +1,13 @@
 package testy;
 
 import gra.*;
+import testy.zachowania.watkow.NieskończonyCykl;
 
 import java.util.ArrayList;
 
 public class DeadlockTest {
   public static void main(String[] args) {
-    utworzenieCyklu(2);
+    utworzenieCyklu(4);
   }
 
   private static void utworzenieCyklu(int szerokość) {
@@ -22,12 +23,17 @@ public class DeadlockTest {
     Kierunek[] kierunkiArr1 = {Kierunek.DÓŁ, Kierunek.PRAWO, Kierunek.GÓRA, Kierunek.LEWO};
 
     ArrayList<Kierunek> kierunki1 = getKierunki(kierunkiArr1, szerokość - 1);
+    ArrayList<Kierunek> kierunki2 = getKierunki(kierunkiArr1, 1);
 
 
     ArrayList<Thread> wątki = new ArrayList<>();
 
     for (int i = 0; i < liczbaPostaci; ++i) {
       Thread nowyWątek = new Thread(new NieskończonyCykl(plansza, new MojaPostać(1, 1), 0, 0, kierunki1));
+      wątki.add(nowyWątek);
+    }
+    for (int i = 0; i < 3; ++i) {
+      Thread nowyWątek = new Thread(new NieskończonyCykl(plansza, new MojaPostać(1, 1), 1, 1, kierunki2));
       wątki.add(nowyWątek);
     }
 

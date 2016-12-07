@@ -1,13 +1,13 @@
-package testy;
+package testy.zachowania.watkow;
 
 import gra.Plansza;
 import gra.Postać;
 
-class UsuwaniePostaci implements Runnable {
+public class UsuwaniePostaci implements Runnable {
   private final Plansza plansza;
   private final Postać postać;
 
-  UsuwaniePostaci(Plansza plansza, Postać postać) {
+  public UsuwaniePostaci(Plansza plansza, Postać postać) {
     this.plansza = plansza;
     this.postać = postać;
   }

@@ -1,4 +1,4 @@
-package testy;
+package testy.zachowania.watkow;
 
 import gra.DeadlockException;
 import gra.Kierunek;
@@ -14,7 +14,7 @@ public class NieskończonyCykl implements Runnable {
   private final int y;
   private final ArrayList<Kierunek> kierunki;
 
-  NieskończonyCykl(Plansza plansza, Postać postać, int x, int y, ArrayList<Kierunek> kierunki) {
+  public NieskończonyCykl(Plansza plansza, Postać postać, int x, int y, ArrayList<Kierunek> kierunki) {
     this.plansza = plansza;
     this.postać = postać;
     this.x = x;
@@ -34,8 +34,7 @@ public class NieskończonyCykl implements Runnable {
       System.out.println(e.getMessage());
     }
 
-    int i = 0;
-
+    //noinspection InfiniteLoopStatement
     do {
       for (Kierunek kierunek : kierunki) {
         try {
@@ -45,8 +44,6 @@ public class NieskończonyCykl implements Runnable {
         } catch (DeadlockException e) {
           System.out.println("Deadlock.");
         }
-
-
       }
 
     } while (true);

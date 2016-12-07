@@ -33,7 +33,7 @@ public class MojaPlansza implements Plansza {
 
   private Semaphore mutex;
 
-  // Górne, lewe rogi postaci, tzn pozycja, zajmowana przez naszą postać, o najmniejszych współrzędnych.
+  /// Górne, lewe rogi postaci, tzn pozycja, zajmowana przez naszą postać, o najmniejszych współrzędnych.
   private volatile Map<Integer, Pozycja> pozycjePostaci;
 
   /// Postacie na planszy.
@@ -154,12 +154,14 @@ public class MojaPlansza implements Plansza {
     /// Usuwam się z listy postaci oczekiwanych przez oczekującego mnie.
     oczekiwaniPrzezOczekującego.remove(idPostaci);
 
+    /*
     Set<Integer> postacieOczekująceNaOczekującego = postacieOczekująceNaPostać.get(idOczekującego);
     /// Rekurencyjnie usuwam się z list postaci, które oczekiwały na oczekującego
     /// (ponieważ wówczas oczekiwały również na mnie).
     for (int oczekującyNaOczekującego : postacieOczekująceNaOczekującego) {
       usuńSięOdOczekującego(idPostaci, oczekującyNaOczekującego);
     }
+    */
   }
 
   private void usuńSięOdOczekiwanychPrzezCiebie(Postać postać) {
@@ -180,13 +182,6 @@ public class MojaPlansza implements Plansza {
 
     /// Usuwam się z listy postaci oczekującyc przez oczekiwanego przeze mnie.
     oczekującyPrzezOczekiwanego.remove(idPostaci);
-
-    Set<Integer> postacieOczekiwanePrzezOczekiwanego = postacieNaKtóreOczekujePostać.get(idOczekiwanego);
-    /// Rekurencyjnie usuwam się z list postaci, które oczekiwały na oczekującego
-    /// (ponieważ wówczas oczekiwały również na mnie).
-    for (int oczekiwanyPrzezOczekiwanego : postacieOczekiwanePrzezOczekiwanego) {
-      usuńSięOdOczekiwanego(idPostaci, oczekiwanyPrzezOczekiwanego);
-    }
   }
 
   private void ustawSięNaPozycjach(Postać postać) {
@@ -206,23 +201,6 @@ public class MojaPlansza implements Plansza {
     }
   }
 
-  private void dodajSięDoOczekującychNaCiebie(Postać postać) {
-    int idPostaci = getPostaćId(postać);
-//    Set<Pozycja> pozycje = ; //todo zmien na wyznaczenie
-    Set<Pozycja> pozycje = wyznaczPozycjePostaci(postać);
-
-    for (Pozycja pozycja : pozycje) {
-      /// Sprawdzam czy ktoś oczekuje na daną pozycje na planszy.
-      if (!postacieOczekująceNaPole.containsKey(pozycja)) {
-        postacieOczekująceNaPole.put(pozycja, new LinkedList<>());
-      }
-
-      for (int idOczekującego : postacieOczekująceNaPole.get(pozycja)) {
-        dodajSięDoZależnościOczekującego(idPostaci, idOczekującego);
-      }
-    }
-  }
-
   private Set<Pozycja> wyznaczPozycjePostaci(Postać postać) {
     Integer idPostaci = getPostaćId(postać);
     Pozycja pozycjaPostaci = pozycjePostaci.get(idPostaci);
@@ -238,6 +216,22 @@ public class MojaPlansza implements Plansza {
     return res;
   }
 
+  private void dodajSięDoOczekującychNaCiebie(Postać postać) {
+    int idPostaci = getPostaćId(postać);
+    Set<Pozycja> pozycje = wyznaczPozycjePostaci(postać);
+
+    for (Pozycja pozycja : pozycje) {
+      /// Sprawdzam czy ktoś oczekuje na daną pozycje na planszy.
+      if (!postacieOczekująceNaPole.containsKey(pozycja)) {
+        postacieOczekująceNaPole.put(pozycja, new LinkedList<>());
+      }
+
+      for (int idOczekującego : postacieOczekująceNaPole.get(pozycja)) {
+        dodajSięDoZależnościOczekującego(idPostaci, idOczekującego);
+      }
+    }
+  }
+
   private void dodajSięDoZależnościOczekującego(int idPostaci, int idOczekującego) {
     Set<Integer> postacieOczekująceNaMnie = postacieOczekująceNaPostać.get(idPostaci);
     Set<Integer> oczekiwaniPrzezOczekującego = postacieNaKtóreOczekujePostać.get(idOczekującego);
@@ -246,13 +240,6 @@ public class MojaPlansza implements Plansza {
     /// oraz dodaję oczekującego na mnie do mojej listy oczekujących.
     oczekiwaniPrzezOczekującego.add(idPostaci);
     postacieOczekująceNaMnie.add(idOczekującego);
-
-    Set<Integer> oczekującyNaOczekującego = postacieOczekująceNaPostać.get(idOczekującego);
-    /// Dodaję się do listy oczekiwanych wszystkich oczekujących na oczekującego mnie.
-    for (int idOczekującegoNaOczekującego : oczekującyNaOczekującego) {
-      dodajSięDoZależnościOczekującego(idPostaci, idOczekującegoNaOczekującego);
-    }
-
   }
 
   private void dodajSięDoOczekujących(Postać postać) {
@@ -271,7 +258,6 @@ public class MojaPlansza implements Plansza {
 
   private void dodajSięDoOczekiwanychPrzezCiebie(Postać postać) {
     int idPostaci = getPostaćId(postać);
-//    Set<Pozycja> pozycje = polaWykorzystywanePodczasAkcji.get(idPostaci); //todo zmien na wyznaczenie
     Set<Pozycja> pozycje = wyznaczPozycjePostaci(postać);
 
     for (Pozycja pozycja : pozycje) {
@@ -281,7 +267,6 @@ public class MojaPlansza implements Plansza {
 
   private void usuńSięZOczekujących(Postać postać) {
     Integer idPostaci = getPostaćId(postać);
-//    Set<Pozycja> pozycje = polaWykorzystywanePodczasAkcji.get(idPostaci); //todo zmien na wyznaczenie
     Set<Pozycja> pozycje = wyznaczPozycjePostaci(postać);
 
     for (Pozycja pozycja : pozycje) {
@@ -308,11 +293,6 @@ public class MojaPlansza implements Plansza {
     /// oraz dodaje się do listy oczekujących postaci, która mnie oczekuje.
     postacieNaKtóreOczekuję.add(idOczekiwanego);
     oczekującyNaOczekiwanego.add(idPostaci);
-
-    Set<Integer> oczekiwaniPrzezOczekiwanego = postacieNaKtóreOczekujePostać.get(idOczekiwanego);
-    for (int oczekiwanaPrzezOczekiwanego : oczekiwaniPrzezOczekiwanego) {
-      dodajPostacieNaKtóreOczekujesz(idPostaci, oczekiwanaPrzezOczekiwanego);
-    }
   }
 
   @Override
@@ -329,7 +309,6 @@ public class MojaPlansza implements Plansza {
 
     /// Dodaję docelową pozycję na mapie.
     pozycjePostaci.put(idPostaci, new Pozycja(wiersz, kolumna));
-
     dodajWymaganePola(postać, wiersz, kolumna);
 
     czekajJeśliAkcjaNiemożliwa(postać);
@@ -345,11 +324,11 @@ public class MojaPlansza implements Plansza {
     if (naPlanszyLubOczekującyNaWejście.contains(idPostaci)) {
       throw new IllegalArgumentException("Postać jest już na planszy.");
     } else {
-      // zakładam, że nie będzie można próbować postawić dwa razy z rzedu postaci, bez jej usunięcia
-      // czyli nie dopuszczam do sytuacji:
-      // >próbujemy postawić postać, zablokowaliśmy proces,
-      // >nie postawiliśmy jeszcze naszej postaci
-      // >inny proces próbuje postawić tę postać gdzieś indziej.
+      /// zakładam, że nie będzie można próbować postawić dwa razy z rzedu postaci, bez jej usunięcia
+      /// czyli nie dopuszczam do sytuacji:
+      /// >próbujemy postawić postać, zablokowaliśmy proces,
+      /// >nie postawiliśmy jeszcze naszej postaci
+      /// >inny proces próbuje postawić tę postać gdzieś indziej.
       semafory.put(idPostaci, new Semaphore(0));
       naPlanszyLubOczekującyNaWejście.add(idPostaci);
       postacieOczekująceNaPostać.put(idPostaci, new HashSet<>());
@@ -408,18 +387,60 @@ public class MojaPlansza implements Plansza {
   private void sprawdźDeadlock(Postać postać) throws DeadlockException {
     Integer idPostaci = getPostaćId(postać);
     Set<Pozycja> wymaganePola = polaWykorzystywanePodczasAkcji.get(idPostaci);
+    Set<Integer> postacieNaPolach = new HashSet<>();
 
     for (Pozycja pozycja : wymaganePola) {
       Integer idPostaciNaPolu = plansza[pozycja.getX()][pozycja.getY()];
-      if (idPostaciNaPolu == PUSTE_POLE) {
-        continue;
+      if (idPostaciNaPolu != PUSTE_POLE) {
+        postacieNaPolach.add(idPostaciNaPolu);
       }
+    }
 
-      Set<Integer> oczekiwaniPrzezPostaćNaPolu = postacieNaKtóreOczekujePostać.get(idPostaciNaPolu);
+    /// Wyznaczam wszystkich, którzy są przeze mnie oczekiwani.
+    Set<Integer> oczekiwaniPrzezCiebie = new HashSet<>();
 
-      if (oczekiwaniPrzezPostaćNaPolu.contains(idPostaci)) {
-        throw new DeadlockException();
+    for (Integer oczekiwany : postacieNaPolach) {
+      wyznaczOczekiwanychPrzezCiebie(oczekiwany, oczekiwaniPrzezCiebie);
+    }
+
+    /// Wyznaczam wszystkich, którzy mnie oczekują.
+    Set<Integer> oczekującyNaCiebie = new HashSet<>();
+
+    for (Integer oczekujący : postacieOczekująceNaPostać.get(idPostaci)) {
+      wyznaczOczekującychNaCiebie(oczekujący, oczekującyNaCiebie);
+    }
+    /// Sprawdzam czy ktoś z oczekiwanych przeze mnie nie oczekuje na oczekującego mnie.
+
+    sprawdźCzyOczekiwanyOczekujeOczekującego(oczekiwaniPrzezCiebie, oczekującyNaCiebie);
+  }
+
+  private void sprawdźCzyOczekiwanyOczekujeOczekującego(Set<Integer> oczekiwaniPrzezCiebie, Set<Integer> oczekującyNaCiebie) throws DeadlockException {
+    for (Integer idOczekiwanego : oczekiwaniPrzezCiebie) {
+      for (Integer idOczekującego : oczekującyNaCiebie) {
+        if (postacieNaKtóreOczekujePostać.get(idOczekiwanego).contains(idOczekującego)) {
+          throw new DeadlockException();
+        }
       }
+    }
+  }
+
+  private void wyznaczOczekującychNaCiebie(Integer idOczekującego, Set<Integer> oczekującyNaCiebie) {
+    oczekującyNaCiebie.add(idOczekującego);
+
+    Set<Integer> oczekiwaniPrzezOczekiwanego = postacieOczekująceNaPostać.get(idOczekującego);
+
+    for (Integer idOczekującegoNaOczekującego : oczekiwaniPrzezOczekiwanego) {
+      wyznaczOczekującychNaCiebie(idOczekującegoNaOczekującego, oczekującyNaCiebie);
+    }
+  }
+
+  private void wyznaczOczekiwanychPrzezCiebie(Integer idOczekiwanego, Set<Integer> oczekiwaniPrzezCiebie) {
+    oczekiwaniPrzezCiebie.add(idOczekiwanego);
+
+    Set<Integer> oczekiwaniPrzezOczekiwanego = postacieNaKtóreOczekujePostać.get(idOczekiwanego);
+
+    for (Integer idOczekiwanegoPrzezOczekiwanego : oczekiwaniPrzezOczekiwanego) {
+      wyznaczOczekiwanychPrzezCiebie(idOczekiwanegoPrzezOczekiwanego, oczekiwaniPrzezCiebie);
     }
   }
 
@@ -430,11 +451,15 @@ public class MojaPlansza implements Plansza {
     if (!polaWykorzystywanePodczasAkcji.containsKey(idPostaci)) {
       polaWykorzystywanePodczasAkcji.put(idPostaci, new HashSet<>());
     }
+    /// Nowe pola, które będę zajmował.
     Set<Pozycja> wymaganePola = polaWykorzystywanePodczasAkcji.get(idPostaci);
 
+    /// Góry lewy róg prostokąta, który będe zajmował (a wcześniej nie zajmowałem).
     int naKtóreX = pozycjaPostaci.getX();
-    int zKtóregoX = pozycjaPostaci.getX();
     int naKtóreY = pozycjaPostaci.getY();
+
+    /// Góry lewy róg prostokąta, który będe zwalniał.
+    int zKtóregoX = pozycjaPostaci.getX();
     int zKtóregoY = pozycjaPostaci.getY();
 
     switch (kierunek) {
@@ -460,6 +485,7 @@ public class MojaPlansza implements Plansza {
         break;
     }
 
+    /// Po wyznaczeniu rogów prostokątów, wyznaczam całe prostokąty (do zwolnienia oraz do zajęcia).
     switch (kierunek) {
       case GÓRA:
       case DÓŁ:
@@ -523,15 +549,9 @@ public class MojaPlansza implements Plansza {
 
     dodajWymaganePola(postać, pozycjaPostaci.getX(), pozycjaPostaci.getY());
 
-    if (czyZablokowane(idPostaci)) {
-      mutex.release();
-      try {
-        semafory.get(idPostaci).acquire();
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
+    śpijJeśliZablokowane(idPostaci);
 
+    /// Wyznaczam postacie, które przed ukończeniem ruchu oczekiwały na mnie.
     Set<Integer> wcześniejOczekującyNaMnie = new HashSet<>(postacieOczekująceNaPostać.get(idPostaci));
     Set<Pozycja> pozycje = polaWykorzystywanePodczasAkcji.get(idPostaci);
 
@@ -552,6 +572,17 @@ public class MojaPlansza implements Plansza {
       mutex.release();
     } else {
       semafory.get(doWybudzenia.poll()).release();
+    }
+  }
+
+  private void śpijJeśliZablokowane(Integer idPostaci) {
+    if (czyZablokowane(idPostaci)) {
+      mutex.release();
+      try {
+        semafory.get(idPostaci).acquire();
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
     }
   }
 
@@ -585,7 +616,7 @@ public class MojaPlansza implements Plansza {
 
   /// temporary
   private void printMapa() {
-    for (int i = 0; i < 15; ++i) System.out.println();
+    for (int i = 0; i < 15; ++i) { System.out.println(); }
     int rozm = 2;
     System.out.println();
     for (int i = 0; i < wysokość; ++i) {
@@ -595,20 +626,13 @@ public class MojaPlansza implements Plansza {
             if (plansza[i][j] == -1) {
               System.out.print("-");
             } else {
-              System.out.print( Integer.toHexString(plansza[i][j]));
+              System.out.print(Integer.toHexString(plansza[i][j]));
             }
           }
         }
         System.out.print("\n");
       }
     }
-
-
-//    try {
-//      Thread.sleep(1000);
-//    } catch (InterruptedException e) {
-//      e.printStackTrace();
-//    }
 
   }
 }

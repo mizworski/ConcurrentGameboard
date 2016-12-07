@@ -1,4 +1,4 @@
-package testy;
+package testy.zachowania.watkow;
 
 import gra.DeadlockException;
 import gra.Kierunek;
@@ -7,14 +7,14 @@ import gra.Postać;
 
 import java.util.ArrayList;
 
-class PrzesuwaniePostaci implements Runnable {
+public class PrzesuwaniePostaci implements Runnable {
   private final Plansza plansza;
   private final Postać postać;
   private final ArrayList<Kierunek> kierunki;
   private final int x;
   private final int y;
 
-  PrzesuwaniePostaci(Plansza plansza, Postać postać, int x, int y, ArrayList<Kierunek> kierunki) {
+  public PrzesuwaniePostaci(Plansza plansza, Postać postać, int x, int y, ArrayList<Kierunek> kierunki) {
     this.plansza = plansza;
     this.postać = postać;
     this.kierunki = kierunki;
