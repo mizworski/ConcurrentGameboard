@@ -32,11 +32,11 @@ class PrzesuwaniePostaci implements Runnable {
     } catch (InterruptedException e) {
       System.out.println(e.getMessage());
     }
-    try {
-      Thread.sleep(2000);
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
+//    try {
+//      Thread.sleep(2000);
+//    } catch (InterruptedException e) {
+//      e.printStackTrace();
+//    }
 
     for (Kierunek kierunek : kierunki) {
       try {

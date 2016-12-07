@@ -559,7 +559,7 @@ public class MojaPlansza implements Plansza {
     List<Integer> doUsunięcia = new Vector<>();
 
     for (Integer idBudzonego : doWybudzenia) {
-      if (postacieOczekująceNaPostać.get(idBudzonego).size() != 0) {
+      if (postacieNaKtóreOczekujePostać.get(idBudzonego).size() != 0) {
         doUsunięcia.add(idBudzonego);
       }
     }
@@ -595,7 +595,7 @@ public class MojaPlansza implements Plansza {
             if (plansza[i][j] == -1) {
               System.out.print("-");
             } else {
-              System.out.print(plansza[i][j]);
+              System.out.print( Integer.toHexString(plansza[i][j]));
             }
           }
         }
@@ -604,11 +604,11 @@ public class MojaPlansza implements Plansza {
     }
 
 
-    try {
-      Thread.sleep(1000);
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
+//    try {
+//      Thread.sleep(1000);
+//    } catch (InterruptedException e) {
+//      e.printStackTrace();
+//    }
 
   }
 }
