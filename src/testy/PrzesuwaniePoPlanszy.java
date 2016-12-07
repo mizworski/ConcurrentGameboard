@@ -11,10 +11,10 @@ public class PrzesuwaniePoPlanszy {
 
   public static void main(String[] args) {
 
-//    simpleTest();
-//    simpleTest2(6);
-    simpleTest3(8,4,5);
-//    simpleTest3(8,2,3);
+    simpleTest();
+    simpleTest2(6);
+    simpleTest3(8, 4, 5);
+    simpleTest3(8, 2, 3);
   }
 
   private static void simpleTest2(int szerokość) {
@@ -86,8 +86,6 @@ public class PrzesuwaniePoPlanszy {
   private static void simpleTest3(int szerokosc, int liczbaPierscieni, int wysokoscPierscienia) {
     MojaPlansza plansza = new MojaPlansza(szerokosc, szerokosc);
 
-//    int i = 0;
-//    int k = 2;
     ArrayList<Thread> wątki = new ArrayList<>();
 
     for (int i = 0; i < liczbaPierscieni; ++i) {
@@ -136,9 +134,6 @@ public class PrzesuwaniePoPlanszy {
   private static ArrayList<Kierunek> getKierunki(Kierunek[] kierunki, int k) {
     ArrayList<Kierunek> kierunkiList = new ArrayList<>();
 
-//    for (int i = 0; i < 2; ++i) {
-//      Collections.addAll(kierunkiList, kierunki);
-//    }
     for (Kierunek kierunek : kierunki) {
       for (int i = 0; i < k; ++i) {
         kierunkiList.add(kierunek);

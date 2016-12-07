@@ -26,51 +26,6 @@ public class StawianieNaPlanszy {
     th3.start();
     th4.start();
     th5.start();
-/*
-
-    Thread thu1 = new Thread(new UsuwaniePostaci(plansza, p1));
-    Thread thu2 = new Thread(new UsuwaniePostaci(plansza, p2));
-    Thread thu3 = new Thread(new UsuwaniePostaci(plansza, p3));
-    Thread thu4 = new Thread(new UsuwaniePostaci(plansza, p4));
-    Thread thu5 = new Thread(new UsuwaniePostaci(plansza, p5));
-
-    try {
-      th1.join();
-      thu1.start();
-    }
-    catch (InterruptedException e) {
-      e.printStackTrace();
-    }
-    try {
-      th2.join();
-      thu2.start();
-    }
-    catch (InterruptedException e) {
-      e.printStackTrace();
-    }
-    try {
-      th3.join();
-      thu3.start();
-    }
-    catch (InterruptedException e) {
-      e.printStackTrace();
-    }
-    try {
-      th4.join();
-      thu4.start();
-    }
-    catch (InterruptedException e) {
-      e.printStackTrace();
-    }
-    try {
-      th5.join();
-      thu5.start();
-    }
-    catch (InterruptedException e) {
-      e.printStackTrace();
-    }
-*/
-
 
     try {
       th1.join();
