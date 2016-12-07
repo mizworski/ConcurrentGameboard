@@ -54,7 +54,7 @@ public class MojaPlansza implements Plansza {
       }
     }
 
-    mutex = new Semaphore(1);
+    mutex = new Semaphore(1, true);
     postacie = new HashMap<>();
     zablokowanePola = new HashSet<>();
     postacieOczekująceNaPostać = new HashMap<>();
@@ -65,6 +65,136 @@ public class MojaPlansza implements Plansza {
     naPlanszyLubOczekującyNaWejście = new HashSet<>();
     pozycjePostaci = new HashMap<>();
     doWybudzenia = new LinkedList<>();
+  }
+
+  @Override
+  public void postaw(Postać postać, int wiersz, int kolumna) throws InterruptedException {
+    try {
+      mutex.acquire();
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
+
+    int idPostaci = getPostaćId(postać);
+
+    błądJeśliPostaćNaMapie(idPostaci);
+    błądJeśliPozycjaPozaMapą(postać, wiersz, kolumna);
+
+    /// Dodaję docelową pozycję na mapie.
+    pozycjePostaci.put(idPostaci, new Pozycja(wiersz, kolumna));
+    dodajWymaganePola(postać, wiersz, kolumna);
+
+    czekajJeśliAkcjaNiemożliwa(postać);
+
+    przemieśćSię(postać);
+
+    printMapa(); //todo temp
+
+    mutex.release();
+  }
+
+  @Override
+  public void przesuń(Postać postać, Kierunek kierunek) throws InterruptedException, DeadlockException {
+    try {
+      mutex.acquire();
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
+
+    Set<Pozycja> zwalnianePola = new HashSet<>();
+    Integer idPostaci = getPostaćId(postać);
+
+    sprawdżCzyPoprawnyRuch(postać, kierunek);
+    wyznaczPolaKtóreSięZmienią(postać, kierunek, zwalnianePola);
+    sprawdźDeadlock(postać);
+
+    czekajJeśliAkcjaNiemożliwa(postać);
+
+    Set<Integer> wcześniejOczekującyNaMnie = new HashSet<>(postacieOczekująceNaPostać.get(idPostaci));
+    przemieśćSię(postać);
+    wyczyśćPlansze(zwalnianePola);
+    wyznaczPostacieDoWybudzenia(wcześniejOczekującyNaMnie);
+
+    printMapa(); //todo temp
+
+    if (doWybudzenia.size() == 0) {
+      mutex.release();
+    } else {
+      semafory.get(doWybudzenia.poll()).release();
+    }
+
+  }
+
+  @Override
+  public void usuń(Postać postać) {
+    try {
+      mutex.acquire();
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
+
+    Integer idPostaci = getPostaćId(postać);
+    if (!naPlanszyLubOczekującyNaWejście.contains(idPostaci)) {
+      throw new IllegalArgumentException("Postaci nie ma na planszy.");
+    }
+
+    Pozycja pozycjaPostaci = pozycjePostaci.remove(idPostaci);
+
+    dodajWymaganePola(postać, pozycjaPostaci.getX(), pozycjaPostaci.getY());
+
+    śpijJeśliZablokowane(idPostaci);
+
+    /// Wyznaczam postacie, które przed ukończeniem ruchu oczekiwały na mnie.
+    Set<Integer> wcześniejOczekującyNaMnie = new HashSet<>(postacieOczekująceNaPostać.get(idPostaci));
+    Set<Pozycja> pozycje = polaWykorzystywanePodczasAkcji.get(idPostaci);
+
+    wyczyśćPlansze(pozycje);
+    usuńSięOdOczekującychNaCiebie(postać);
+    usuńSięOdOczekiwanychPrzezCiebie(postać);
+
+    wyznaczPostacieDoWybudzenia(wcześniejOczekującyNaMnie);
+
+    naPlanszyLubOczekującyNaWejście.remove(idPostaci);
+    semafory.remove(idPostaci);
+    postacieOczekująceNaPostać.remove(idPostaci);
+    postacieNaKtóreOczekujePostać.remove(idPostaci);
+
+    printMapa(); //todo temp
+
+    if (doWybudzenia.size() == 0) {
+      mutex.release();
+    } else {
+      semafory.get(doWybudzenia.poll()).release();
+    }
+  }
+
+  @Override
+  public void sprawdź(int wiersz, int kolumna, Akcja jeśliZajęte, Runnable jeśliWolne) {
+    if (wiersz < 0 || kolumna < 0 || wiersz >= wysokość || kolumna >= szerokość) {
+      throw new IllegalArgumentException("Pozycja poza mapą");
+    }
+
+    Integer idPostaci = plansza[wiersz][kolumna];
+
+    if (idPostaci == PUSTE_POLE) {
+      jeśliWolne.run();
+    } else {
+      Postać postać = znajdźPostac(idPostaci);
+      Pozycja pozycja = new Pozycja(wiersz, kolumna);
+      zablokowanePola.add(pozycja);
+      jeśliZajęte.wykonaj(postać);
+    }
+  }
+
+  private Postać znajdźPostac(Integer idPostaci) {
+    for (Postać postać : postacie.keySet()) {
+      if (Objects.equals(postacie.get(postać), idPostaci)) {
+        return postać;
+      }
+    }
+
+    /// Nigdy się tak nie wydarzy.
+    return null;
   }
 
   private Integer getPostaćId(Postać postać) {
@@ -270,16 +400,13 @@ public class MojaPlansza implements Plansza {
     Set<Pozycja> pozycje = wyznaczPozycjePostaci(postać);
 
     for (Pozycja pozycja : pozycje) {
-      /// Usuwam się z listy.
       postacieOczekująceNaPole.get(pozycja).remove(idPostaci);
     }
   }
 
   private void dodajSięDoOczekiwanegoNaPozycji(int idPostaci, Pozycja pozycja) {
-    /// Dodaję wszystkich, na których oczekuję oraz
-    /// dodaję się na ich listy postaci, które na nich oczekują.
     int idObecnejPostaci = plansza[pozycja.getX()][pozycja.getY()];
-    if (idObecnejPostaci != PUSTE_POLE) {
+    if (idObecnejPostaci != PUSTE_POLE && idObecnejPostaci != idPostaci) {
       dodajPostacieNaKtóreOczekujesz(idPostaci, idObecnejPostaci);
     }
 
@@ -295,31 +422,6 @@ public class MojaPlansza implements Plansza {
     oczekującyNaOczekiwanego.add(idPostaci);
   }
 
-  @Override
-  public void postaw(Postać postać, int wiersz, int kolumna) throws InterruptedException {
-    try {
-      mutex.acquire();
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
-
-    int idPostaci = getPostaćId(postać);
-
-    błądJeśliPostaćNaMapie(idPostaci);
-
-    /// Dodaję docelową pozycję na mapie.
-    pozycjePostaci.put(idPostaci, new Pozycja(wiersz, kolumna));
-    dodajWymaganePola(postać, wiersz, kolumna);
-
-    czekajJeśliAkcjaNiemożliwa(postać);
-
-    przemieśćSię(postać);
-
-    printMapa(); //todo TEMP
-
-    mutex.release();
-  }
-
   private void błądJeśliPostaćNaMapie(int idPostaci) {
     if (naPlanszyLubOczekującyNaWejście.contains(idPostaci)) {
       throw new IllegalArgumentException("Postać jest już na planszy.");
@@ -333,6 +435,14 @@ public class MojaPlansza implements Plansza {
       naPlanszyLubOczekującyNaWejście.add(idPostaci);
       postacieOczekująceNaPostać.put(idPostaci, new HashSet<>());
       postacieNaKtóreOczekujePostać.put(idPostaci, new HashSet<>());
+    }
+  }
+
+  private void błądJeśliPozycjaPozaMapą(Postać postać, int wiersz, int kolumna) {
+    if (wiersz < 0 || kolumna < 0 ||
+        wiersz + postać.dajWysokość() > wysokość ||
+        kolumna + postać.dajSzerokość() > szerokość) {
+      throw new IllegalArgumentException("Postać nie mieści się na mapie.");
     }
   }
 
@@ -352,37 +462,6 @@ public class MojaPlansza implements Plansza {
     }
   }
 
-  @Override
-  public void przesuń(Postać postać, Kierunek kierunek) throws InterruptedException, DeadlockException {
-    try {
-      mutex.acquire();
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
-
-    Set<Pozycja> zwalnianePola = new HashSet<>();
-    Integer idPostaci = getPostaćId(postać);
-
-    sprawdżCzyPoprawnyRuch(postać, kierunek);
-    wyznaczPolaKtóreSięZmienią(postać, kierunek, zwalnianePola);
-    sprawdźDeadlock(postać);
-
-    czekajJeśliAkcjaNiemożliwa(postać);
-
-    Set<Integer> wcześniejOczekującyNaMnie = new HashSet<>(postacieOczekująceNaPostać.get(idPostaci));
-    przemieśćSię(postać);
-    wyczyśćPlansze(zwalnianePola);
-    wyznaczPostacieDoWybudzenia(wcześniejOczekującyNaMnie);
-
-    printMapa(); //todo TEMP
-
-    if (doWybudzenia.size() == 0) {
-      mutex.release();
-    } else {
-      semafory.get(doWybudzenia.poll()).release();
-    }
-
-  }
 
   private void sprawdźDeadlock(Postać postać) throws DeadlockException {
     Integer idPostaci = getPostaćId(postać);
@@ -412,6 +491,14 @@ public class MojaPlansza implements Plansza {
     /// Sprawdzam czy ktoś z oczekiwanych przeze mnie nie oczekuje na oczekującego mnie.
 
     sprawdźCzyOczekiwanyOczekujeOczekującego(oczekiwaniPrzezCiebie, oczekującyNaCiebie);
+
+    /// Sprawdzam czy sam nie oczekuję na kogoś, kto oczekuje mnie.
+    Set<Integer> przecięcie = new HashSet<>(oczekiwaniPrzezCiebie);
+    przecięcie.retainAll(oczekującyNaCiebie);
+
+    if (przecięcie.size() > 0) {
+      throw new DeadlockException();
+    }
   }
 
   private void sprawdźCzyOczekiwanyOczekujeOczekującego(Set<Integer> oczekiwaniPrzezCiebie, Set<Integer> oczekującyNaCiebie) throws DeadlockException {
@@ -532,48 +619,6 @@ public class MojaPlansza implements Plansza {
     }
   }
 
-  @Override
-  public void usuń(Postać postać) {
-    try {
-      mutex.acquire();
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
-
-    Integer idPostaci = getPostaćId(postać);
-    if (!naPlanszyLubOczekującyNaWejście.contains(idPostaci)) {
-      throw new IllegalArgumentException("Postaci nie ma na planszy.");
-    }
-
-    Pozycja pozycjaPostaci = pozycjePostaci.remove(idPostaci);
-
-    dodajWymaganePola(postać, pozycjaPostaci.getX(), pozycjaPostaci.getY());
-
-    śpijJeśliZablokowane(idPostaci);
-
-    /// Wyznaczam postacie, które przed ukończeniem ruchu oczekiwały na mnie.
-    Set<Integer> wcześniejOczekującyNaMnie = new HashSet<>(postacieOczekująceNaPostać.get(idPostaci));
-    Set<Pozycja> pozycje = polaWykorzystywanePodczasAkcji.get(idPostaci);
-
-    wyczyśćPlansze(pozycje);
-    usuńSięOdOczekującychNaCiebie(postać);
-    usuńSięOdOczekiwanychPrzezCiebie(postać);
-
-    wyznaczPostacieDoWybudzenia(wcześniejOczekującyNaMnie);
-
-    naPlanszyLubOczekującyNaWejście.remove(idPostaci);
-    semafory.remove(idPostaci);
-    postacieOczekująceNaPostać.remove(idPostaci);
-    postacieNaKtóreOczekujePostać.remove(idPostaci);
-
-    printMapa(); //todo TEMP
-
-    if (doWybudzenia.size() == 0) {
-      mutex.release();
-    } else {
-      semafory.get(doWybudzenia.poll()).release();
-    }
-  }
 
   private void śpijJeśliZablokowane(Integer idPostaci) {
     if (czyZablokowane(idPostaci)) {
@@ -609,15 +654,9 @@ public class MojaPlansza implements Plansza {
 
   }
 
-  @Override
-  public void sprawdź(int wiersz, int kolumna, Akcja jeśliZajęte, Runnable jeśliWolne) {
-
-  }
-
-  /// temporary
   private void printMapa() {
     for (int i = 0; i < 15; ++i) { System.out.println(); }
-    int rozm = 2;
+    int rozm = 1;
     System.out.println();
     for (int i = 0; i < wysokość; ++i) {
       for (int wys = 0; wys < rozm; ++wys) {

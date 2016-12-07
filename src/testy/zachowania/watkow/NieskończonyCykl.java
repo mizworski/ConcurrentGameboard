@@ -26,7 +26,7 @@ public class NieskończonyCykl implements Runnable {
   @Override
   public void run() {
     Thread t = Thread.currentThread();
-    System.out.println("Thread started dprzesuń: " + t.getName());
+    System.out.println("Thread started przesuń: " + t.getName());
 
     try {
       plansza.postaw(postać, x, y);

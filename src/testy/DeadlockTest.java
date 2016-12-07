@@ -12,13 +12,8 @@ public class DeadlockTest {
 
   private static void utworzenieCyklu(int szerokość) {
     Plansza plansza = new MojaPlansza(szerokość, szerokość);
-    ArrayList<MojaPostać> postacie = new ArrayList<>();
 
     int liczbaPostaci = 4 * szerokość - 4;
-
-    for (int i = 0; i < liczbaPostaci; ++i) {
-      postacie.add(new MojaPostać(1, 1));
-    }
 
     Kierunek[] kierunkiArr1 = {Kierunek.DÓŁ, Kierunek.PRAWO, Kierunek.GÓRA, Kierunek.LEWO};
 
