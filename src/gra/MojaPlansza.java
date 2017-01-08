@@ -177,6 +177,7 @@ public class MojaPlansza implements Plansza {
       Pozycja pozycja = new Pozycja(wiersz, kolumna);
       zablokowanePola.add(pozycja);
       jeśliZajęte.wykonaj(postać);
+      zablokowanePola.remove(pozycja);
     }
   }
 
